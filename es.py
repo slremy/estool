@@ -164,7 +164,7 @@ class SimpleGA:
   def rms_stdev(self):
     return self.sigma # same sigma for all parameters.
 
-  def ask(self):
+  def ask(self, process=lambda x:x):
     '''returns a list of parameters'''
     self.epsilon = np.random.randn(self.popsize, self.num_params) * self.sigma
     solutions = []
@@ -180,7 +180,7 @@ class SimpleGA:
       idx_a = np.random.choice(elite_range)
       idx_b = np.random.choice(elite_range)
       child_params = mate(self.elite_params[idx_a], self.elite_params[idx_b])
-      solutions.append(child_params + self.epsilon[i])
+      solutions.append(process(child_params + self.epsilon[i]))
 
     solutions = np.array(solutions)
     self.solutions = solutions
@@ -411,7 +411,7 @@ class PEPG:
     sigma = self.sigma
     return np.mean(np.sqrt(sigma*sigma))
 
-  def ask(self):
+  def ask(self, process=lambda x:x):
     '''returns a list of parameters'''
     # antithetic sampling
     self.epsilon = np.random.randn(self.batch_size, self.num_params) * self.sigma.reshape(1, self.num_params)
@@ -422,7 +422,7 @@ class PEPG:
       # first population is mu, then positive epsilon, then negative epsilon
       epsilon = np.concatenate([np.zeros((1, self.num_params)), self.epsilon_full])
     solutions = self.mu.reshape(1, self.num_params) + epsilon
-    self.solutions = solutions
+    self.solutions = process(solutions)
     return solutions
 
   def tell(self, reward_table_result):
