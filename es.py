@@ -277,7 +277,7 @@ class OpenES:
     sigma = self.sigma
     return np.mean(np.sqrt(sigma*sigma))
 
-  def ask(self):
+  def ask(self, process=lambda x:x):
     '''returns a list of parameters'''
     # antithetic sampling
     if self.antithetic:
@@ -286,7 +286,7 @@ class OpenES:
     else:
       self.epsilon = np.random.randn(self.popsize, self.num_params)
 
-    self.solutions = self.mu.reshape(1, self.num_params) + self.epsilon * self.sigma
+    self.solutions = process(self.mu.reshape(1, self.num_params) + self.epsilon * self.sigma)
 
     return self.solutions
 
