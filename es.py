@@ -231,6 +231,144 @@ class SimpleGA:
   def result(self): # return best params so far, along with historically best reward, curr reward, sigma
     return (self.best_param, self.best_reward, self.curr_best_reward, self.sigma)
 
+class RemyGA:
+  '''Simple Genetic Algorithm.'''
+  def __init__(self, num_params,      # number of model parameters
+               random_individuals_fcn,
+               mutate_fcn,
+               immigrant_ratio=.2,     # percentage of new individuals
+               sigma_init=0.1,        # initial standard deviation
+               sigma_decay=0.999,     # anneal standard deviation
+               sigma_limit=0.01,      # stop annealing if less than this
+               popsize=256,           # population size
+               elite_ratio=0.1,       # percentage of the elites
+               forget_best=False,     # forget the historical best elites
+               weight_decay=0.01,     # weight decay coefficient
+              ):
+
+    self.num_params = num_params
+    self.sigma_init = sigma_init
+    self.sigma_decay = sigma_decay
+    self.sigma_limit = sigma_limit
+    self.popsize = popsize
+    self.random_individuals_fcn = random_individuals_fcn
+    self.mutate_fcn = mutate_fcn
+
+    self.elite_ratio = elite_ratio
+    self.elite_popsize = int(self.popsize * self.elite_ratio)
+    self.immigrant_ratio = immigrant_ratio
+    self.immigrant_popsize = int(self.popsize * self.immigrant_ratio)
+
+    self.sigma = self.sigma_init
+    self.elite_params = np.zeros((self.elite_popsize, self.num_params))
+    #self.elite_rewards = np.zeros(self.elite_popsize)
+    self.best_param = np.zeros(self.num_params)
+    self.best_reward = 0
+    self.reward_pdf = np.zeros(self.popsize+1)
+    self.solutions = np.zeros((self.popsize, self.num_params))
+    self.first_iteration = True
+    self.forget_best = forget_best
+    self.weight_decay = weight_decay
+
+  def rms_stdev(self):
+    return self.sigma # same sigma for all parameters.
+
+  def ask(self, process=lambda x:x):
+    '''returns a list of parameters'''
+    self.epsilon = np.random.randn(self.popsize, self.num_params) * self.sigma
+    solutions = []
+    
+    def mate(a, b):
+      c = np.copy(a)
+      idx = np.where(np.random.rand((c.size)) > 0.5)
+      c[idx] = b[idx]
+      return c
+    
+    def crossover(a,b):
+      cross_point = int((self.num_params-1)*np.random.rand(1));
+      c = np.append(a[:cross_point], b[cross_point:self.num_params]);
+      return c
+    
+    index_array = np.arange(self.popsize)
+    if self.first_iteration:
+        for i in index_array:
+            solutions.append(self.random_individuals_fcn(1,self.num_params)[0])
+        self.first_iteration = False
+    else:
+        elite_range = range(self.elite_popsize)
+        for i in elite_range:
+            solutions.append(self.elite_params[i])
+
+        immigrant_range = range(self.immigrant_popsize)
+        for i in immigrant_range:
+            solutions.append(self.random_individuals_fcn(1,self.num_params)[0])
+
+        #intialize the index list for "mating" chromosomes
+        newchildren = range(self.elite_popsize+self.immigrant_popsize, self.popsize)
+        selected = np.arange(2*len(newchildren));
+        for i in range(len(selected)):
+            testNo = 1;
+            #Choose a parent
+            while self.reward_pdf[testNo] < np.random.rand():
+                testNo = testNo + 1;
+            selected[i] = index_array[testNo];
+
+        for i in range(len(newchildren)):
+            chromosomeA = self.solutions[selected[i*2+0], :];
+            chromosomeB = self.solutions[selected[i*2+1], :];
+            child = crossover(chromosomeA,chromosomeB)
+            solutions.append(self.mutate_fcn(child))
+    
+    solutions = np.array(solutions)
+
+    self.solutions = solutions
+
+    return solutions
+
+  def tell(self, reward_table_result):
+    # input must be a numpy float array
+    assert(len(reward_table_result) == self.popsize), "Inconsistent reward_table size reported."
+
+    reward_table = np.array(reward_table_result)
+    
+    if self.weight_decay > 0:
+      l2_decay = compute_weight_decay(self.weight_decay, self.solutions)
+      reward_table += l2_decay
+
+    if (not self.forget_best or self.first_iteration):
+      reward = reward_table
+      solution = self.solutions
+    else:
+      reward = np.concatenate([reward_table, self.elite_rewards])
+      solution = np.concatenate([self.solutions, self.elite_params])
+    
+    self.reward_pdf = np.cumsum(reward)/np.sum(reward)
+    idx = np.argsort(reward)[::-1][0:self.elite_popsize]
+
+    self.elite_rewards = reward[idx]
+    self.elite_params = solution[idx]
+
+    self.curr_best_reward = self.elite_rewards[0]
+    
+    if self.first_iteration or (self.curr_best_reward > self.best_reward):
+      self.first_iteration = False
+      self.best_reward = self.elite_rewards[0]
+      self.best_param = np.copy(self.elite_params[0])
+
+    if (self.sigma > self.sigma_limit):
+      self.sigma *= self.sigma_decay
+
+  def current_param(self):
+    return self.elite_params[0]
+
+  def set_mu(self, mu):
+    pass
+
+  def best_param(self):
+    return self.best_param
+
+  def result(self): # return best params so far, along with historically best reward, curr reward, sigma
+    return (self.best_param, self.best_reward, self.curr_best_reward, self.sigma)
 class OpenES:
   ''' Basic Version of OpenAI Evolution Strategies.'''
   def __init__(self, num_params,             # number of model parameters
