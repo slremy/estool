@@ -374,6 +374,7 @@ class OpenES:
   def __init__(self, num_params,             # number of model parameters
                sigma_init=0.1,               # initial standard deviation
                sigma_decay=0.999,            # anneal standard deviation
+               random_individuals_fcn = np.random.randn
                sigma_limit=0.01,             # stop annealing if less than this
                learning_rate=0.01,           # learning rate for standard deviation
                learning_rate_decay = 0.9999, # annealing the learning rate
@@ -393,6 +394,7 @@ class OpenES:
     self.learning_rate_decay = learning_rate_decay
     self.learning_rate_limit = learning_rate_limit
     self.popsize = popsize
+    self.makerandom = random_individuals_fcn
     self.antithetic = antithetic
     if self.antithetic:
       assert (self.popsize % 2 == 0), "Population size must be even"
@@ -419,10 +421,10 @@ class OpenES:
     '''returns a list of parameters'''
     # antithetic sampling
     if self.antithetic:
-      self.epsilon_half = np.random.randn(self.half_popsize, self.num_params)
+      self.epsilon_half = self.makerandom(self.half_popsize, self.num_params)
       self.epsilon = np.concatenate([self.epsilon_half, - self.epsilon_half])
     else:
-      self.epsilon = np.random.randn(self.popsize, self.num_params)
+      self.epsilon = self.makerandom(self.popsize, self.num_params)
 
     self.solutions = process(self.mu.reshape(1, self.num_params) + self.epsilon * self.sigma)
 
