@@ -374,7 +374,7 @@ class OpenES:
   def __init__(self, num_params,             # number of model parameters
                sigma_init=0.1,               # initial standard deviation
                sigma_decay=0.999,            # anneal standard deviation
-               random_individuals_fcn = np.random.randn
+               random_individuals_fcn = np.random.randn,
                sigma_limit=0.01,             # stop annealing if less than this
                learning_rate=0.01,           # learning rate for standard deviation
                learning_rate_decay = 0.9999, # annealing the learning rate
