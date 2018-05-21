@@ -319,7 +319,7 @@ class RemyGA:
             child = crossover(chromosomeA,chromosomeB)
             solutions.append(self.mutate_fcn(child))
     
-    solutions = np.array(solutions)
+    solutions = process(np.array(solutions))
 
     self.solutions = solutions
 
