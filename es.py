@@ -134,6 +134,8 @@ class CMAES:
 class SimpleGA:
   '''Simple Genetic Algorithm.'''
   def __init__(self, num_params,      # number of model parameters
+               random_individuals_fcn,
+               mutate_fcn,
                sigma_init=0.1,        # initial standard deviation
                sigma_decay=0.999,     # anneal standard deviation
                sigma_limit=0.01,      # stop annealing if less than this
@@ -148,6 +150,9 @@ class SimpleGA:
     self.sigma_decay = sigma_decay
     self.sigma_limit = sigma_limit
     self.popsize = popsize
+    self.random_individuals_fcn = random_individuals_fcn
+    self.mutate_fcn = mutate_fcn
+
 
     self.elite_ratio = elite_ratio
     self.elite_popsize = int(self.popsize * self.elite_ratio)
@@ -166,7 +171,7 @@ class SimpleGA:
 
   def ask(self, process=lambda x:x):
     '''returns a list of parameters'''
-    self.epsilon = np.random.randn(self.popsize, self.num_params) * self.sigma
+    self.epsilon = self.random_individuals_fcn(self.popsize, self.num_params) * self.sigma
     solutions = []
     
     def mate(a, b):
