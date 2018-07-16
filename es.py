@@ -346,10 +346,15 @@ class RemyGA:
     else:
       reward = np.concatenate([reward_table, self.elite_rewards])
       solution = np.concatenate([self.solutions, self.elite_params])
-    
-    self.reward_pdf = np.cumsum(reward)/np.sum(reward)
-    idx = np.argsort(reward)[::-1][0:self.elite_popsize]
 
+    reward_masked = np.ma.masked_array(reward,mask = (np.isnan(reward) | np.isinf(reward)))
+    
+    self.reward_pdf = (np.cumsum(reward_masked)/np.sum(reward_masked)).compressed()
+    sorted_idx = np.argsort(reward_masked)[::-1]
+    idx = sorted_idx[~reward_masked.mask][0:self.elite_popsize]
+    
+    assert(len(idx) == self.elite_popsize), "Inconsistent elite size reported."
+    
     self.elite_rewards = reward[idx]
     self.elite_params = solution[idx]
 
