@@ -258,6 +258,7 @@ class RemyGA:
     self.popsize = popsize
     self.random_individuals_fcn = random_individuals_fcn
     self.mutate_fcn = mutate_fcn
+    self.solutions = None
 
     self.elite_ratio = elite_ratio
     self.elite_popsize = int(self.popsize * self.elite_ratio)
@@ -281,9 +282,10 @@ class RemyGA:
   def ask(self, process=lambda x:x):
     '''returns a list of parameters'''
     self.epsilon = np.random.randn(self.popsize, self.num_params) * self.sigma
-    solutions = []
+    
     
     def mate(a, b):
+      #single point crossover
       c = np.copy(a)
       idx = np.where(np.random.rand((c.size)) > 0.5)
       c[idx] = b[idx]
@@ -296,39 +298,27 @@ class RemyGA:
     
     index_array = np.arange(self.popsize)
     if self.first_iteration:
-        for i in index_array:
-            solutions.append(self.random_individuals_fcn(1,self.num_params)[0])
-        self.first_iteration = False
+        self.solutions = self.random_individuals_fcn(self.popsize,self.num_params)
     else:
-        elite_range = range(self.elite_popsize)
-        for i in elite_range:
-            solutions.append(self.elite_params[i])
-
-        immigrant_range = range(self.immigrant_popsize)
-        for i in immigrant_range:
-            solutions.append(self.random_individuals_fcn(1,self.num_params)[0])
-
         #intialize the index list for "mating" chromosomes
-        newchildren = range(self.elite_popsize+self.immigrant_popsize, self.popsize)
-        selected = np.arange(2*len(newchildren));
+        childrenIDX = range(self.popsize - self.elite_popsize - self.immigrant_popsize);
+        selected = np.arange(2*len(childrenIDX));
         for i in range(len(selected)):
             testNo = 1;
             #Choose a parent
             while self.reward_pdf[testNo] < np.random.rand():
                 testNo = testNo + 1;
             selected[i] = index_array[testNo];
-
-        for i in range(len(newchildren)):
+        children = []
+        for i in range(len(childrenIDX)):
             chromosomeA = self.solutions[selected[i*2+0], :];
             chromosomeB = self.solutions[selected[i*2+1], :];
-            child = crossover(chromosomeA,chromosomeB)
-            solutions.append(self.mutate_fcn(child))
-    
-    solutions = process(np.array(solutions))
+            child = crossover(chromosomeA,chromosomeB) if 0.5 < np.random.rand() else crossover(chromosomeB,chromosomeA)
+            children.append(self.mutate_fcn(child))
+        
+        self.solutions = process(np.concatenate((self.elite_params, self.random_individuals_fcn(self.immigrant_popsize,self.num_params), np.array(children))))
 
-    self.solutions = solutions
-
-    return solutions
+    return self.solutions
 
   def tell(self, reward_table_result):
     # input must be a numpy float array
@@ -340,12 +330,8 @@ class RemyGA:
       l2_decay = compute_weight_decay(self.weight_decay, self.solutions)
       reward_table += l2_decay
 
-    if (not self.forget_best or self.first_iteration):
-      reward = reward_table
-      solution = self.solutions
-    else:
-      reward = np.concatenate([reward_table, self.elite_rewards])
-      solution = np.concatenate([self.solutions, self.elite_params])
+    reward = reward_table
+    solution = self.solutions
 
     reward_masked = np.ma.masked_array(reward,mask = (np.isnan(reward) | np.isinf(reward)))
     
@@ -367,6 +353,8 @@ class RemyGA:
 
     if (self.sigma > self.sigma_limit):
       self.sigma *= self.sigma_decay
+
+    self.first_iteration = False
 
   def current_param(self):
     return self.elite_params[0]
