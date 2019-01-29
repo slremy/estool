@@ -298,7 +298,7 @@ class RemyGA:
     
     index_array = np.arange(self.popsize)
     if self.first_iteration:
-        self.solutions = self.random_individuals_fcn(self.popsize,self.num_params)
+        self.solutions = process(self.random_individuals_fcn(self.popsize,self.num_params))
     else:
         #intialize the index list for "mating" chromosomes
         childrenIDX = range(self.popsize - self.elite_popsize - self.immigrant_popsize);
